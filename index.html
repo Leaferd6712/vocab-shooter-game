@@ -5,28 +5,33 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Vocab Wave Shooter</title>
 <style>
-  :root { --bg:#0b1020; --panel:#111827; --accent:#5db2ff; --text:#e6eef8; }
+  :root { --bg:#0b1020; --panel:#111827; --accent:#5db2ff; --text:#e6eef8; --accent-strong:#3aa0ff; }
   body { margin:0; font-family:Inter,Segoe UI,Arial; background:linear-gradient(180deg,#071026,#091226); color:var(--text); display:flex; height:100vh; }
   #left { width:320px; padding:16px; box-sizing:border-box; background:rgba(0,0,0,0.25); border-right:1px solid rgba(255,255,255,0.03); transition:opacity .25s ease; }
   h1 { font-size:18px; margin:4px 0 12px; }
-  label { font-size:13px; opacity:0.9; }
-  textarea { width:100%; height:220px; margin-top:8px; resize:vertical; background:#071427; color:var(--text); border:1px solid rgba(255,255,255,0.05); padding:8px; box-sizing:border-box; }
+  label { font-size:13px; opacity:0.95; display:block; margin-bottom:6px; }
+  textarea { width:100%; height:160px; margin-top:4px; resize:vertical; background:#071427; color:var(--text); border:1px solid rgba(255,255,255,0.05); padding:8px; box-sizing:border-box; }
+  .modeBtns { display:flex; gap:8px; margin-bottom:8px; }
+  .modeBtns button { flex:1; padding:8px; background:transparent; color:var(--text); border:1px solid rgba(255,255,255,0.05); border-radius:6px; cursor:pointer; }
+  .modeBtns button.active { background:var(--accent-strong); color:#022229; font-weight:700; border-color:var(--accent-strong); }
   button { margin-top:8px; padding:8px 10px; background:var(--accent); color:#042233; border:none; cursor:pointer; font-weight:600; }
-  #controls { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; }
+  #controls { margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; }
   #right { flex:1; position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; }
   canvas { background:linear-gradient(180deg,#081022,#071628); border-radius:6px; box-shadow:0 6px 30px rgba(2,8,22,0.7); }
   .hud { position:absolute; top:12px; left:12px; font-weight:700; color:var(--text); }
   .hud .row { margin-bottom:6px; }
   .topright { position:absolute; top:12px; right:12px; text-align:right; }
   .footer { position:absolute; bottom:12px; left:12px; font-size:13px; opacity:0.9; }
-  .modal { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:rgba(2,10,20,0.95); border:1px solid rgba(255,255,255,0.06); padding:18px; border-radius:8px; width:520px; max-width:90%; box-sizing:border-box; z-index:20; }
+  .modal { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:rgba(2,10,20,0.97); border:1px solid rgba(255,255,255,0.06); padding:18px; border-radius:8px; width:520px; max-width:95%; box-sizing:border-box; z-index:20; }
   .modal h2 { margin:0 0 8px; }
-  .modal .q { margin:10px 0 14px; }
-  .modal input { width:100%; padding:8px; font-size:16px; box-sizing:border-box; }
+  .modal .q { margin:10px 0 10px; }
+  .modal input { width:100%; padding:10px; font-size:16px; box-sizing:border-box; border-radius:6px; border:1px solid rgba(255,255,255,0.04); background:#071427; color:var(--text); }
   .small { font-size:13px; opacity:0.9; margin-top:6px; }
   .muted { opacity:0.7; font-size:13px; }
   .pill { background:rgba(255,255,255,0.03); padding:6px 8px; border-radius:6px; display:inline-block; margin-right:8px; }
   .promptBox { background:#071827; border:1px dashed rgba(255,255,255,0.04); padding:8px; margin-top:8px; border-radius:6px; font-size:13px; }
+  .accentRow { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+  .accentRow button { padding:6px 8px; border-radius:6px; border:1px solid rgba(255,255,255,0.06); background:transparent; color:var(--text); cursor:pointer; font-weight:600; }
   #message { position:absolute; left:50%; top:18px; transform:translateX(-50%); font-weight:700; background:rgba(255,255,255,0.02); padding:8px 12px; border-radius:8px; }
   @media(max-width:900px){ #left{display:none;} }
 </style>
@@ -34,6 +39,16 @@
 <body>
   <div id="left">
     <h1>Shooter Game for Vocab</h1>
+
+    <!-- Instruction line the user asked for -->
+    <label><strong>IMPORTANT:</strong> Paste <em>French</em> first, then the <em>English</em> — one pair per line using a separator like <code>:</code> <code>=</code> <code>,</code> or a tab. Example: <code>chat:cat</code></label>
+
+    <!-- Mode buttons -->
+    <div class="modeBtns">
+      <button id="modeFrToEn" class="active">French → English</button>
+      <button id="modeEnToFr">English → French</button>
+    </div>
+
     <label>Paste up to <strong>100</strong> vocab pairs (one per line):</label>
     <textarea id="vocabBox" placeholder="Format examples:
 chat:cat
@@ -99,10 +114,14 @@ libro	TAB	book
 
   <!-- Modal for vocab question -->
   <div id="questionModal" class="modal" style="display:none;">
-    <h2>Reload — Answer to get bullets</h2>
-    <div class="q"><strong>Translate / Answer:</strong> <span id="qWord"></span></div>
+    <h2 id="modalTitle">Reload — Answer to get bullets</h2>
+    <div class="q"><strong id="qPromptLabel">Translate to English:</strong> <span id="qWord"></span></div>
     <input id="qInput" autocomplete="off" placeholder="Type correct answer then press Enter" />
-    <div class="small muted">Press Enter to submit. Correct answer gives bullets. Wrong answer gives nothing.</div>
+    <!-- accent / insert buttons -->
+    <div class="accentRow" id="accentRow" aria-hidden="false" style="display:flex;">
+      <!-- populated by JS -->
+    </div>
+    <div class="small muted" style="margin-top:8px;">Press Enter to submit. Correct answer gives bullets. Wrong answer gives nothing.</div>
   </div>
 
 <script>
@@ -128,10 +147,14 @@ libro	TAB	book
   const questionModal = document.getElementById('questionModal');
   const qWordEl = document.getElementById('qWord');
   const qInput = document.getElementById('qInput');
-  const message = document.getElementById('message');
+  const qPromptLabel = document.getElementById('qPromptLabel');
+  const modalTitle = document.getElementById('modalTitle');
+  const accentRow = document.getElementById('accentRow');
+  const modeFrToEnBtn = document.getElementById('modeFrToEn');
+  const modeEnToFrBtn = document.getElementById('modeEnToFr');
 
   // Game state
-  let vocab = []; // array of {word,answer}
+  let vocab = []; // array of {word,answer} where word is first-col (French if user followed instructions)
   let running = false;
   let paused = false;
   let lastTime = 0;
@@ -151,36 +174,62 @@ libro	TAB	book
     h: 36,
     vx:0,
     ax:0,
-    speed: 1100, // px/s^2 acceleration
-    maxSpeed: 380, // px/s
+    speed: 1100,
+    maxSpeed: 380,
     friction: 0.85
   };
   let spawnTimer = 0;
-  let spawnInterval = 1.0; // seconds (will be recalculated per wave)
+  let spawnInterval = 1.0;
   let enemiesToSpawnThisWave = 6;
   let enemiesRemainingInWave = 0;
   let waveInProgress = false;
   let questionActive = false;
   let currentQuestion = null;
 
+  // Mode: 'fr2en' or 'en2fr'
+  let mode = 'fr2en';
+  function setMode(m) {
+    mode = m;
+    modeFrToEnBtn.classList.toggle('active', m==='fr2en');
+    modeEnToFrBtn.classList.toggle('active', m==='en2fr');
+  }
+  modeFrToEnBtn.addEventListener('click', ()=> setMode('fr2en'));
+  modeEnToFrBtn.addEventListener('click', ()=> setMode('en2fr'));
+
   // Controls
   const keys = {};
   window.addEventListener('keydown', e => {
     keys[e.key.toLowerCase()] = true;
-    // Prevent page scrolling on space
-    if (e.key === ' ' || e.key === 'Spacebar') {
-      e.preventDefault();
-    }
-    // Reload key
+    if (e.key === ' ' || e.key === 'Spacebar') e.preventDefault();
     if (e.key.toLowerCase() === 'r') {
-      if (!questionActive && running && !paused) {
-        openQuestion();
-      }
+      if (!questionActive && running && !paused) openQuestion();
     }
   });
   window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
-  // Load vocab parsing
+  // Helpful: insert accent at caret
+  function insertAtCaret(el, text) {
+    el.focus();
+    const start = el.selectionStart || 0;
+    const end = el.selectionEnd || 0;
+    const val = el.value;
+    el.value = val.slice(0,start) + text + val.slice(end);
+    const pos = start + text.length;
+    el.setSelectionRange(pos,pos);
+    el.dispatchEvent(new Event('input',{bubbles:true}));
+  }
+
+  // populate accent buttons
+  const accents = ['à','á','â','ä','è','é','ê','ë','î','ï','ô','ö','ù','û','ü','ç','ñ','ß','œ'];
+  accents.forEach(ch => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = ch;
+    b.addEventListener('click', ()=> insertAtCaret(qInput, ch));
+    accentRow.appendChild(b);
+  });
+
+  // Load vocab parsing (first token is French if instructions followed)
   function parseVocab(text) {
     const lines = text.split('\n').map(s => s.trim()).filter(s => s);
     const list = [];
@@ -190,12 +239,9 @@ libro	TAB	book
       if (parts.length<2) parts = ln.split('=');
       if (parts.length<2) parts = ln.split(',');
       if (parts.length<2) parts = ln.split('\t');
-      if (parts.length<2) {
-        // If still single word, skip
-        continue;
-      }
+      if (parts.length<2) continue;
       const word = parts[0].trim();
-      const answer = parts.slice(1).join(':').trim(); // keep anything after first separator
+      const answer = parts.slice(1).join(':').trim();
       if (word && answer) list.push({word, answer});
       if (list.length >= 100) break;
     }
@@ -209,13 +255,12 @@ libro	TAB	book
       return;
     }
     vocab = list;
-    alert(`Loaded ${vocab.length} vocab pairs (max 100).`);
+    alert(`Loaded ${vocab.length} vocab pairs (max 100). Mode: ${mode==='fr2en' ? 'French → English' : 'English → French'}`);
     startBtn.disabled = false;
   });
 
   startBtn.addEventListener('click', () => {
     if (vocab.length === 0) { alert('Load vocab first!'); return; }
-    // Reset state
     running = true;
     paused = false;
     lastTime = performance.now();
@@ -223,7 +268,6 @@ libro	TAB	book
     wave = 0;
     enemies = [];
     bullets = [];
-    // STARTER AMMO: give the player 10 bullets at start
     ammo = 10;
     misses = 0;
     spawnTimer = 0;
@@ -231,6 +275,7 @@ libro	TAB	book
     enemiesRemainingInWave = 0;
     waveInProgress = false;
     questionActive = false;
+    currentQuestion = null;
     startBtn.disabled = true;
     bulletsPerCorrect = parseInt(bulletsPerCorrectInput.value,10) || 4;
     maxMisses = parseInt(maxMissesInput.value,10) || 5;
@@ -240,9 +285,8 @@ libro	TAB	book
     missesEl.textContent = misses;
     showTempMessage('Game started! +10 bullets');
 
-    // ===== HIDE / LOCK VOCAB PANEL TO PREVENT CHEATING =====
+    // hide left panel and lock inputs
     leftPanel.style.display = 'none';
-    // additionally disable inputs so they can't be edited via keyboard shortcuts
     vocabBox.disabled = true;
     loadVocabBtn.disabled = true;
     bulletsPerCorrectInput.disabled = true;
@@ -251,92 +295,81 @@ libro	TAB	book
     requestAnimationFrame(loop);
   });
 
-  // Shooting
-  function shoot() {
-    if (ammo <= 0) {
-      // auto open question
-      openQuestion();
-      return;
+  // Normalization: remove diacritics, punctuation, lowercase — more forgiving matching
+  function normalizeForCompare(s) {
+    if (!s) return '';
+    // decompose accents then remove combining marks
+    try {
+      s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    } catch (e) {
+      // fallback if normalize unsupported
     }
-    // Create bullet at player's nose
-    const bx = player.x;
-    const by = player.y - 6;
-    bullets.push({
-      x: bx,
-      y: by,
-      vx: 0,
-      vy: -760, // px/s
-      r: 5
-    });
-    ammo--;
+    // remove any non-alphanumeric spaces
+    s = s.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+    // collapse multiple spaces
+    s = s.replace(/\s+/g, ' ');
+    return s;
   }
 
-  // Enemy spawn
-  function spawnEnemy() {
-    const margin = 40;
-    const ex = margin + Math.random() * (canvas.width - margin*2);
-    // size slightly smaller on early waves, slightly larger later
-    const size = 30 + Math.random()*30;
-    // baseSpeed reduced a bit to make early waves gentler
-    const baseSpeed = 20 + Math.random()*35;
-    const sway = 40 + Math.random()*60;
-    enemies.push({
-      x: ex,
-      y: -size - 10,
-      w: size,
-      h: size*0.7,
-      vy: baseSpeed,
-      sway: sway,
-      swayOffset: Math.random()*Math.PI*2,
-      hp: 1,
-      id: Math.random()
-    });
-  }
-
-  // Open vocab question modal to get bullets
+  // Open question modal. Behavior depends on mode.
   function openQuestion() {
     if (vocab.length === 0) return;
-    // Pause the game loop updates but keep rendering background
     questionActive = true;
-    // Pick a random vocab item
+    // pick a random vocab entry
     const item = vocab[Math.floor(Math.random()*vocab.length)];
     currentQuestion = item;
-    qWordEl.textContent = item.word;
     qInput.value = '';
+
+    if (mode === 'fr2en') {
+      // show French and expect English
+      qPromptLabel.textContent = 'Translate to English:';
+      qWordEl.textContent = item.word;
+      modalTitle.textContent = 'Reload — Answer to get bullets';
+    } else {
+      // en2fr: show English and expect French
+      qPromptLabel.textContent = 'How do you say';
+      // show as: How do you say "cat" in French?
+      qWordEl.textContent = `"${item.answer}" in French?`;
+      modalTitle.textContent = 'Reload — Answer to get bullets';
+    }
+
     questionModal.style.display = 'block';
     qInput.focus();
   }
 
-  // Close modal
   function closeQuestion() {
     questionActive = false;
     currentQuestion = null;
     questionModal.style.display = 'none';
     qInput.value = '';
-    // ensure focus goes away
     canvas.focus();
   }
 
-  // Submit answer
+  // Submit answer (Enter)
   qInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
-      const guess = qInput.value.trim();
+      const guessRaw = qInput.value || '';
       if (!currentQuestion) return;
+      const guess = normalizeForCompare(guessRaw);
+      let correct;
+      if (mode === 'fr2en') {
+        // correct answer = item.answer (English)
+        correct = normalizeForCompare(currentQuestion.answer);
+      } else {
+        // correct answer = item.word (French)
+        correct = normalizeForCompare(currentQuestion.word);
+      }
       if (guess.length === 0) {
-        // allow empty submission (counts as wrong)
         closeQuestion();
         showTempMessage('No answer — no bullets gained.');
         return;
       }
-      // Compare case-insensitively and also ignore some punctuation
-      const normalize = s => s.toLowerCase().replace(/[^a-zàâäéèêëîïôöùûüçñ0-9 ]/gi, '').trim();
-      if (normalize(guess) === normalize(currentQuestion.answer)) {
-        // correct
-        const amount = bulletsPerCorrect; // could be randomized if you want
+      if (guess === correct) {
+        const amount = bulletsPerCorrect;
         ammo += amount;
         showTempMessage(`Correct! +${amount} bullets`);
       } else {
-        showTempMessage(`Wrong — correct: "${currentQuestion.answer}"`);
+        showTempMessage(`Wrong — correct: "${ mode==='fr2en' ? currentQuestion.answer : currentQuestion.word }"`);
       }
       closeQuestion();
     }
@@ -344,7 +377,6 @@ libro	TAB	book
 
   // Collision helpers
   function rectCircleCollide(rx, ry, rw, rh, cx, cy, cr) {
-    // find closest point
     const closestX = Math.max(rx, Math.min(cx, rx+rw));
     const closestY = Math.max(ry, Math.min(cy, ry+rh));
     const dx = cx - closestX;
@@ -352,7 +384,7 @@ libro	TAB	book
     return (dx*dx + dy*dy) <= cr*cr;
   }
 
-  // Draw helper: rounded rect
+  // Rounded rect draw helper
   function roundRect(x,y,w,h,r){
     ctx.beginPath();
     ctx.moveTo(x+r,y);
@@ -363,140 +395,120 @@ libro	TAB	book
     ctx.closePath();
   }
 
-  // Temporary message
+  // message helper
   let msgTimeout = null;
   function showTempMessage(txt, t=1600){
+    const message = document.getElementById('message');
     message.style.display = 'block';
     message.textContent = txt;
     clearTimeout(msgTimeout);
     msgTimeout = setTimeout(()=>{ message.style.display='none' }, t);
   }
 
-  // Main loop
+  // game loop state variables
+  let shootCooldown = 0;
+
+  function shoot() {
+    if (ammo <= 0) {
+      openQuestion();
+      return;
+    }
+    const bx = player.x;
+    const by = player.y - 6;
+    bullets.push({ x: bx, y: by, vx:0, vy:-760, r:5 });
+    ammo--;
+  }
+
+  function spawnEnemy() {
+    const margin = 40;
+    const ex = margin + Math.random() * (canvas.width - margin*2);
+    const size = 30 + Math.random()*30;
+    const baseSpeed = 20 + Math.random()*35;
+    const sway = 40 + Math.random()*60;
+    enemies.push({
+      x: ex,
+      y: -size - 10,
+      w: size, h: size*0.7,
+      vy: baseSpeed,
+      sway: sway,
+      swayOffset: Math.random()*Math.PI*2,
+      hp: 1,
+      id: Math.random()
+    });
+  }
+
   function loop(now) {
     if (!running) return;
     if (paused) return;
     const dt = Math.min(0.05, (now - lastTime)/1000);
     lastTime = now;
-
     update(dt);
     render();
-
     if (running) requestAnimationFrame(loop);
   }
 
-  // Update game state (dt in seconds)
   function update(dt) {
-    // Handle controls
     let left = keys['arrowleft'] || keys['a'] || false;
     let right = keys['arrowright'] || keys['d'] || false;
-    if (left && !right) {
-      player.vx -= player.speed * dt;
-    } else if (right && !left) {
-      player.vx += player.speed * dt;
-    } else {
-      // friction
-      player.vx *= Math.pow(player.friction, dt*60);
-    }
-    // clamp
+    if (left && !right) player.vx -= player.speed * dt;
+    else if (right && !left) player.vx += player.speed * dt;
+    else player.vx *= Math.pow(player.friction, dt*60);
     if (player.vx > player.maxSpeed) player.vx = player.maxSpeed;
     if (player.vx < -player.maxSpeed) player.vx = -player.maxSpeed;
     player.x += player.vx * dt;
-
-    // bounds
     const half = player.w/2;
     if (player.x < half) { player.x = half; player.vx *= -0.1; }
     if (player.x > canvas.width - half) { player.x = canvas.width - half; player.vx *= -0.1; }
 
-    // Shooting (space)
     if ((keys[' '] || keys['spacebar']) && !questionActive) {
-      // simple auto-fire cooldown handled by ammo only to keep it playable
-      // prevent continuous firing too fast: add a tiny cooldown per bullet
-      if (!shootCooldown) shootCooldown = 0;
+      shootCooldown = (typeof shootCooldown === 'number') ? shootCooldown : 0;
       shootCooldown -= dt;
       if (shootCooldown <= 0) {
-        if (ammo > 0) {
-          shoot();
-          shootCooldown = 0.12; // 120ms between shots
-        }
+        if (ammo > 0) { shoot(); shootCooldown = 0.12; }
       }
     }
 
-    // Update bullets
     for (let i = bullets.length-1; i >= 0; i--) {
       const b = bullets[i];
       b.y += b.vy * dt;
       b.x += b.vx * dt;
-      // offscreen
-      if (b.y < -20) {
-        bullets.splice(i,1);
-      }
+      if (b.y < -20) bullets.splice(i,1);
     }
 
-    // Wave spawn and enemies
     if (!waveInProgress) {
-      // start next wave
       wave++;
       waveEl.textContent = wave;
-
-      // =========== DIFFICULTY TUNING ===========
-      // make first few waves easy and ramp gradually:
-      // enemies start at 3 on wave 1, then slowly increase (+1 per wave roughly)
       enemiesToSpawnThisWave = 3 + Math.floor((wave - 1) * 1.0);
-
-      // spawn interval: starts slow (1.4s) and reduces gradually as waves increase, but capped
       spawnInterval = Math.max(0.3, 1.4 - Math.min(1.0, (wave - 1) * 0.06));
-
-      // store remaining and mark wave started
       enemiesRemainingInWave = enemiesToSpawnThisWave;
       waveInProgress = true;
-
-      // give a softer message for early waves
-      if (wave <= 3) {
-        showTempMessage('Wave ' + wave + ' — Easy');
-      } else if (wave <= 6) {
-        showTempMessage('Wave ' + wave + ' — Moderate');
-      } else {
-        showTempMessage('Wave ' + wave);
-      }
+      if (wave <= 3) showTempMessage('Wave ' + wave + ' — Easy');
+      else if (wave <= 6) showTempMessage('Wave ' + wave + ' — Moderate');
+      else showTempMessage('Wave ' + wave);
     } else {
-      // spawning
       spawnTimer += dt;
       if (spawnTimer >= spawnInterval && enemiesRemainingInWave > 0) {
         spawnTimer = 0;
         spawnEnemy();
         enemiesRemainingInWave--;
       }
-      // wave finishes when both enemies array empty and remaining to spawn 0
-      if (enemiesRemainingInWave === 0 && enemies.length === 0) {
-        waveInProgress = false;
-      }
+      if (enemiesRemainingInWave === 0 && enemies.length === 0) waveInProgress = false;
     }
 
-    // Update enemies
     for (let i = enemies.length-1; i >= 0; i--) {
       const e = enemies[i];
-      // sway motion; make sway growth with wave smaller so it doesn't get too hard too quickly
       e.x += Math.sin((performance.now()/1000)*1.5 + e.swayOffset) * e.sway * 0.003 * (1 + Math.max(0, wave - 1) * 0.02);
-      // increase downward speed a little each wave, but not too aggressively
       e.y += (e.vy + Math.max(0, wave - 1) * 2.5) * dt;
-
-      // if reached bottom
       if (e.y > canvas.height + 40) {
         enemies.splice(i,1);
         misses++;
         missesEl.textContent = misses;
-        if (misses >= maxMisses) {
-          endGame();
-          return;
-        }
+        if (misses >= maxMisses) { endGame(); return; }
         continue;
       }
-      // collisions with bullets
       for (let j = bullets.length-1; j >= 0; j--) {
         const b = bullets[j];
         if (rectCircleCollide(e.x, e.y, e.w, e.h, b.x, b.y, b.r)) {
-          // hit
           bullets.splice(j,1);
           e.hp--;
           if (e.hp <= 0) {
@@ -509,7 +521,6 @@ libro	TAB	book
       }
     }
 
-    // Update HUD
     ammoEl.textContent = ammo;
     enemiesAliveEl.textContent = enemies.length;
   }
@@ -520,7 +531,7 @@ libro	TAB	book
     showTempMessage('Game Over! Score: ' + score, 3000);
     alert('Game over! Score: ' + score);
 
-    // ===== RE-ENABLE / SHOW VOCAB PANEL =====
+    // show left panel again and re-enable inputs
     leftPanel.style.display = 'block';
     vocabBox.disabled = false;
     loadVocabBtn.disabled = false;
@@ -528,19 +539,14 @@ libro	TAB	book
     maxMissesInput.disabled = false;
   }
 
-  // Render everything
   function render() {
-    // clear
     ctx.clearRect(0,0,canvas.width,canvas.height);
-
-    // background gradient
     const g = ctx.createLinearGradient(0,0,0,canvas.height);
     g.addColorStop(0, '#071323');
     g.addColorStop(1, '#051021');
     ctx.fillStyle = g;
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    // stars (subtle)
     for (let i=0;i<40;i++){
       ctx.fillStyle = 'rgba(255,255,255,0.02)';
       const x = (i*97) % canvas.width;
@@ -548,21 +554,17 @@ libro	TAB	book
       ctx.fillRect(x, y, 1, 1);
     }
 
-    // draw player (triangle-ish ship)
     ctx.save();
     ctx.translate(player.x, player.y);
     ctx.rotate(Math.max(-0.35, Math.min(0.35, player.vx/400)));
-    // body
     ctx.fillStyle = '#6bd1ff';
     roundRect(-player.w/2, -player.h/2, player.w, player.h, 8);
     ctx.fill();
-    // cockpit
     ctx.fillStyle = '#02293a';
     roundRect(-player.w/6, -player.h/4, player.w/3, player.h/2, 6);
     ctx.fill();
     ctx.restore();
 
-    // bullets
     ctx.fillStyle = '#ffcc66';
     for (const b of bullets) {
       ctx.beginPath();
@@ -570,67 +572,42 @@ libro	TAB	book
       ctx.fill();
     }
 
-    // enemies
     for (const e of enemies) {
-      // draw shadow
       ctx.fillStyle = 'rgba(0,0,0,0.25)';
       roundRect(e.x-5, e.y+e.h-3, e.w+10, 8, 6);
       ctx.fill();
-
-      // enemy body
       ctx.fillStyle = '#ff6b6b';
       roundRect(e.x, e.y, e.w, e.h, 8);
       ctx.fill();
-
-      // word on enemy? (optional, we keep enemies neutral as requested)
       ctx.fillStyle = '#0b0f14';
       ctx.font = Math.max(12, Math.floor(e.w*0.18)) + 'px system-ui, Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      // optionally show id briefly
       ctx.fillText('☻', e.x + e.w/2, e.y + e.h/2 - 2);
     }
   }
 
-  // allow clicking reload button area: (here user presses R)
-  // Keyboard shoot also works
-
-  // small shoot cooldown var
-  let shootCooldown = 0;
-
-  // Helper: prevent text selection while playing
+  // Prevent text selection while playing
   document.addEventListener('selectstart', (e) => { if (running) e.preventDefault(); });
 
-  // Save cursor focus to canvas for space events
+  // focus handling
   canvas.tabIndex = 1000;
   canvas.style.outline = 'none';
   canvas.addEventListener('click', () => canvas.focus());
 
-  // Prevent accidental form submission interfering
+  // prevent Enter newlines interfering when question active
   document.addEventListener('keydown', (e) => {
-    // Prevent Enter from adding newline to textarea when game active
-    if (e.key === 'Enter' && questionActive) {
-      e.preventDefault();
-    }
-    // handle spacebar for shooting on modern browsers
+    if (e.key === 'Enter' && questionActive) e.preventDefault();
     if (e.key === ' ' || e.key === 'Spacebar') {
-      if (!questionActive && running && !paused) {
-        shoot();
-        e.preventDefault();
-      }
+      if (!questionActive && running && !paused) { shoot(); e.preventDefault(); }
     }
   });
 
-  // Update settings live
-  bulletsPerCorrectInput.addEventListener('change', () => {
-    bulletsPerCorrect = parseInt(bulletsPerCorrectInput.value,10) || 4;
-  });
-  maxMissesInput.addEventListener('change', () => {
-    maxMisses = parseInt(maxMissesInput.value,10) || 5;
-    maxMissesDisplay.textContent = maxMisses;
-  });
+  // live settings
+  bulletsPerCorrectInput.addEventListener('change', () => { bulletsPerCorrect = parseInt(bulletsPerCorrectInput.value,10) || 4; });
+  maxMissesInput.addEventListener('change', () => { maxMisses = parseInt(maxMissesInput.value,10) || 5; maxMissesDisplay.textContent = maxMisses; });
 
-  // Initial sample vocab
+  // initial sample vocab
   vocabBox.value = `chat:cat
 chien:dog
 pomme:apple
@@ -638,7 +615,6 @@ maison:house
 livre:book
 rouge:red
 vert:green`;
-
 })();
 </script>
 </body>
